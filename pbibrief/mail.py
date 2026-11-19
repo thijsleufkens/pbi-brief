@@ -55,6 +55,12 @@ def uren(sec: int) -> str:
     return f"{u} u {m} min" if u else f"{m} min"
 
 
+def uren_kort(sec: int) -> str:
+    """Voor de kaarten: past ook op een telefoon in een derde van de breedte."""
+    u, m = divmod(round(sec / 60), 60)
+    return f"{u}:{m:02d} u" if u else f"{m} min"
+
+
 def datum_nl(d: date) -> str:
     return f"{d.day} {MAANDEN[d.month - 1]} {d.year}"
 
@@ -129,7 +135,7 @@ def tekst_body(nummer: int, datum: date, g: dict, intro: str = "") -> str:
                     r += [f"  {mmss(m['sec'])} {m['wat']}: {yt(v['id'], m['sec'])}" for m in s["momenten"]]
             r += [f"  {yt(v['id'])}", ""]
         if k == "kort" and g["kort_rest"]:
-            r += [f"  (en nog {g['kort_rest']} shorts zonder bruikbare tip)", ""]
+            r += [f"  (en nog {g['kort_rest']} {'short' if g['kort_rest'] == 1 else 'shorts'} zonder bruikbare tip)", ""]
     if g["geen"]:
         r += ["NOG ZONDER ONDERTITELS", ""] + [f"* {v['kanaal']}: {v['titel']}: {yt(v['id'])}" for v, _ in g["geen"]] + [""]
     return "\n".join(r)
@@ -148,19 +154,19 @@ def _tegel(inhoud: str, padding: str = "14px 16px") -> str:
 
 
 def kaart(waarde: str, label: str) -> str:
-    return _tegel(f'<div style="font:600 26px/1.1 {SANS};color:{INKT};">{e(waarde)}</div>'
+    return _tegel(f'<div style="font:600 24px/1.1 {SANS};color:{INKT};white-space:nowrap;">{e(waarde)}</div>'
                   f'<div style="font:12px/1.4 {SANS};color:{ZACHT};margin-top:4px;">{e(label)}</div>', "14px 14px 12px")
 
 
 def kaarten(g: dict) -> str:
     lang = [v for k in ("redmond", "kijken", "lezen", "overslaan") for v, _ in g[k]]
-    n = len(lang) + len(g["kort"]) + g["kort_rest"]
+    n = len(lang) + len(g["kort"]) + len(g["geen"])
     kijk = sum(v["duur_s"] or 0 for v, _ in g["kijken"])
     cel = lambda x, rechts: f'<td width="33%" valign="top" style="padding:0 {8 if rechts else 0}px 0 0;">{x}</td>'
     return (f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>'
-            f'{cel(kaart(str(n), "nieuwe video" + ("s" if n != 1 else "")), True)}'
-            f'{cel(kaart(uren(sum(v["duur_s"] or 0 for v in lang)), "kijktijd lange video's"), True)}'
-            f'{cel(kaart(uren(kijk) if kijk else "0", "kijktijd van de kijktips"), False)}'
+            f'{cel(kaart(str(n), "nieuwe video" + ("\'s" if n != 1 else "")), True)}'
+            f'{cel(kaart(uren_kort(sum(v["duur_s"] or 0 for v in lang)), "kijktijd lange video's"), True)}'
+            f'{cel(kaart(uren_kort(kijk) if kijk else "0", "kijktijd van de kijktips"), False)}'
             f'</tr></table>')
 
 
@@ -179,27 +185,27 @@ def staafgrafiek(g: dict) -> str:
     if not rijen:
         return ""
     hoogste = max(sum(r.values()) for _, r in rijen)
-    legenda = "".join(
-        f'<td bgcolor="{REEKS[k]}" width="9" style="background:{REEKS[k]};width:9px;height:9px;font-size:0;">&nbsp;</td>'
-        f'<td style="padding:0 12px 0 5px;font:11px/1.4 {SANS};color:{ZACHT};white-space:nowrap;">{REEKS_NAAM[k]}</td>'
+    legenda = " ".join(
+        f'<span style="display:inline-block;margin:0 12px 4px 0;font:11px/1.4 {SANS};color:{ZACHT};white-space:nowrap;">'
+        f'<span style="display:inline-block;width:9px;height:9px;background:{REEKS[k]};vertical-align:-1px;margin-right:5px;"></span>'
+        f'{REEKS_NAAM[k]}</span>'
         for k in ("redmond", "kijken", "lezen", "overslaan", "kort") if any(k in r for _, r in rijen))
     html_rijen = []
     for kanaal, r in rijen:
         totaal = sum(r.values())
-        breedte = max(2, round(78 * totaal / hoogste))
+        breedte = max(2, round(70 * totaal / hoogste))
         cellen = "".join(
             f'<td width="{max(1, round(100 * r[k] / totaal))}%" bgcolor="{REEKS[k]}" style="background:{REEKS[k]};height:14px;font-size:0;">&nbsp;</td>'
             for k in ("redmond", "kijken", "lezen", "overslaan", "kort") if k in r)
         html_rijen.append(
-            f'<tr><td width="34%" style="padding:4px 10px 4px 0;font:12px/1.3 {SANS};color:{INKT};white-space:nowrap;'
-            f'overflow:hidden;text-overflow:ellipsis;max-width:180px;">{e(kanaal)}</td>'
+            f'<tr><td width="34%" valign="middle" style="padding:4px 10px 4px 0;font:12px/1.3 {SANS};color:{INKT};">{e(kanaal)}</td>'
             f'<td style="padding:4px 0;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>'
             f'<td width="{breedte}%"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" '
             f'style="table-layout:fixed;"><tr>{cellen}</tr></table></td>'
             f'<td style="padding-left:6px;font:11px/1 {SANS};color:{ZACHT};white-space:nowrap;">{uren(totaal)}</td>'
             f'</tr></table></td></tr>')
     return _tegel(f'<div style="font:600 14px/1.3 {SANS};color:{INKT};">Kijktijd per kanaal</div>'
-                  f'<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 6px;"><tr>{legenda}</tr></table>'
+                  f'<div style="margin:8px 0 4px;">{legenda}</div>'
                   f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">{"".join(html_rijen)}</table>')
 
 
@@ -297,7 +303,7 @@ def tabel_kort(g: dict) -> str:
         f'<td valign="top" style="padding:8px 0;border-top:1px solid {LIJN};font:14px/1.45 {SANS};color:{INKT};">'
         f'{_a(yt(v["id"], kort=True), e(s["tip"]), INKT)}</td></tr>' for v, s in g["kort"])
     rest = (f'<tr><td colspan="2" style="padding:8px 0;border-top:1px solid {LIJN};font:12px/1.4 {SANS};color:{ZACHT};">'
-            f'En nog {g["kort_rest"]} shorts zonder bruikbare tip.</td></tr>') if g["kort_rest"] else ""
+            f'En nog {g["kort_rest"]} {"short" if g["kort_rest"] == 1 else "shorts"} zonder bruikbare tip.</td></tr>') if g["kort_rest"] else ""
     return (f'<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">'
             f'<tr><td style="padding:0 0 6px;font:600 12px/1 {SANS};color:{ZACHT};">Kanaal</td>'
             f'<td style="padding:0 0 6px;font:600 12px/1 {SANS};color:{ZACHT};">Tip</td></tr>{rijen}{rest}</table></td></tr>')
