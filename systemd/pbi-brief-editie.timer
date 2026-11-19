@@ -1,0 +1,9 @@
+[Unit]
+Description=pbi-brief: editie (zondag 08:10 NL)
+
+[Timer]
+OnCalendar=Sun *-*-* 08:10:00 Europe/Amsterdam
+Persistent=true
+
+[Install]
+WantedBy=timers.target

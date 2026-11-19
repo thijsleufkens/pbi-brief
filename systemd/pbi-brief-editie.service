@@ -1,0 +1,11 @@
+[Unit]
+Description=pbi-brief: wekelijkse mail versturen (Postmark)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=@RUN_USER@
+WorkingDirectory=@DEST@
+EnvironmentFile=@DEST@/.env
+ExecStart=@DEST@/venv/bin/python -m pbibrief.cli editie

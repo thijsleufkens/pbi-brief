@@ -1,0 +1,11 @@
+.venv/
+venv/
+data/
+.env
+__pycache__/
+._*
+.DS_Store
+deploy.env
+CLAUDE.md
+prompts/lezer.md
+.pytest_cache/

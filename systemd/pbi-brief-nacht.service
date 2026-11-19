@@ -1,0 +1,12 @@
+[Unit]
+Description=pbi-brief: nieuwe video's van de kanalen ophalen en samenvatten
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=@RUN_USER@
+WorkingDirectory=@DEST@
+EnvironmentFile=@DEST@/.env
+TimeoutStartSec=2h
+ExecStart=@DEST@/venv/bin/python -m pbibrief.cli nacht
