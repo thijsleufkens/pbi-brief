@@ -61,6 +61,29 @@ Op een server: `deploy.sh` met een ingevuld `deploy.env` (zie `deploy.env.exampl
 de code, maakt een venv en zet twee systemd-timers aan: nacht 01:30, zondag 08:10
 (Europe/Amsterdam).
 
+## Transcripten van elders
+
+YouTube blokkeert transcripten vaak voor IP-adressen van datacenters. Dan kan een andere
+machine met een gewoon thuis-IP ze ophalen (een Raspberry Pi Zero is genoeg); samenvatten
+blijft op de server.
+
+1. Zet `PBI_TRANSCRIPTEN=extern` in `.env`. De nacht haalt dan zelf niets meer op en vat
+   alleen samen wat al geleverd is.
+2. Kopieer `extern/haal_transcripten.py` naar die machine en installeer
+   `youtube-transcript-api` in een venv.
+3. Laat die machine elke nacht, ruim vóór de nachtrun:
+
+   ```bash
+   ssh server 'pbi-brief wachtrij' | venv/bin/python haal_transcripten.py | ssh server 'pbi-brief lever'
+   ```
+
+   `wachtrij` zoekt nieuwe video's en geeft er maximaal `PBI_NACHTBUDGET` als JSON;
+   `lever` slaat de transcripten op. Met `HEARTBEAT_DIR` schrijft `lever` na een volledige
+   levering een heartbeat `pbi-brief-transcripten`; stopt de ophaler halverwege of wordt ook dat
+   IP geblokkeerd, dan blijft die heartbeat uit en wordt bewaard wat al binnen was.
+   Beperk de SSH-sleutel van die machine met een `command=` in `authorized_keys` tot precies
+   deze twee commando's.
+
 ## Grenzen
 
 - Samenvattingen komen uit automatische ondertitels plus een klein model: details kunnen

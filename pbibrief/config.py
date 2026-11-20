@@ -33,6 +33,9 @@ EERSTE_RUN_KORT = 1           # ... en de nieuwste short; de rest genegeerd
 BLOK_SECONDEN = 60
 PAUZE_S = float(os.environ.get("PBI_PAUZE_S", "20"))          # tussen transcripten (rate-limit)
 NACHTBUDGET = int(os.environ.get("PBI_NACHTBUDGET", "12"))    # max nieuwe transcripten per nacht
+# "zelf": de server haalt de transcripten. "extern": een andere machine levert ze (zie extern.py),
+# de nacht vat alleen samen wat al binnen is.
+TRANSCRIPTEN = os.environ.get("PBI_TRANSCRIPTEN", "zelf")
 MAX_KIJKEN = 3
 MAX_KORT = 8
 

@@ -1,4 +1,4 @@
-"""pbi-brief nacht | editie [--droog]"""
+"""pbi-brief nacht | editie [--droog] | wachtrij | lever"""
 import argparse
 import re
 import logging
@@ -9,7 +9,7 @@ from datetime import date, datetime, timezone
 import json
 from pathlib import Path
 
-from . import bron, config, db, mail, postgram, samenvat, week
+from . import bron, config, db, extern, mail, postgram, samenvat, week
 from .qwen import Qwen, QwenFout
 
 log = logging.getLogger("pbibrief")
@@ -71,10 +71,13 @@ def nacht() -> int:
     nieuw = ontdek(con)
     log.info("lijsten: %d nieuwe video's", nieuw)
     qwen = Qwen()
-    klaar = opgehaald = 0
+    klaar = opgehaald = wacht = 0
     for v in db.te_doen(con):
         if v["transcript"]:
             t = bron.Transcript(v["transcript"], v["duur_s"] or 0, v["woorden"] or 0, bool(v["afgekapt"]))
+        elif config.TRANSCRIPTEN == "extern":
+            wacht += 1
+            continue
         else:
             if opgehaald >= config.NACHTBUDGET:
                 log.info("nachtbudget (%d transcripten) op; rest volgende nacht", config.NACHTBUDGET)
@@ -103,6 +106,8 @@ def nacht() -> int:
         db.markeer_klaar(con, v["id"], s, t.duur_s, t.woorden)
         klaar += 1
         log.info("%s %s: %s %.0fs", v["kanaal"], v["id"], regel, meta["latency_s"])
+    if wacht:
+        log.info("%d video's wachten op een transcript van elders", wacht)
     log.info("nacht klaar: %d samengevat", klaar)
     schrijf_heartbeat("pbi-brief-nacht")
     return 0
@@ -137,16 +142,41 @@ def editie(droog: bool = False) -> int:
     return 0
 
 
+def wachtrij() -> int:
+    """Nieuwe video's opzoeken en de wachtrij voor transcripten van elders als JSON afdrukken."""
+    con = db.open_db(config.DB_PATH)
+    log.info("lijst: %d nieuw", ontdek(con))
+    print(json.dumps(extern.wachtrij(con, config.NACHTBUDGET), ensure_ascii=False))
+    return 0
+
+
+def lever() -> int:
+    """Transcripten van elders (JSON-regels op stdin) opslaan; de nacht vat ze samen."""
+    con = db.open_db(config.DB_PATH)
+    ok, geen, afloop = extern.lever(con, sys.stdin)
+    log.info("geleverd: %d transcripten, %d zonder; %s", ok, geen, afloop)
+    if afloop != "klaar":
+        return 1
+    schrijf_heartbeat("pbi-brief-transcripten")
+    return 0
+
+
 def main(argv=None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     p = argparse.ArgumentParser(prog="pbi-brief")
     sub = p.add_subparsers(dest="cmd", required=True)
     sub.add_parser("nacht")
+    sub.add_parser("wachtrij", help="wachtrij voor transcripten van elders (JSON op stdout)")
+    sub.add_parser("lever", help="transcripten van elders opslaan (JSON-regels op stdin)")
     ed = sub.add_parser("editie")
     ed.add_argument("--droog", action="store_true", help="niet versturen, schrijf data/voorbeeld.html")
     a = p.parse_args(argv)
     if a.cmd == "nacht":
         return nacht()
+    if a.cmd == "wachtrij":
+        return wachtrij()
+    if a.cmd == "lever":
+        return lever()
     return editie(droog=a.droog)
 
 
